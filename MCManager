@@ -1,0 +1,86 @@
+#!/bin/bash
+IFS='='
+
+if ! which mcrcon >/dev/null 2>&1; then
+    echo "Not found \"mcrcon\" command."
+    echo "Go to https://github.com/Tiiffi/mcrcon/ clone and build it"
+    exit 1
+fi
+
+host=
+port=
+passwd=
+
+inputServerInfo(){
+    read -rp "MC Server Host(localhost)=" host
+    read -rp "MC Server Port(25575)=" port
+    read -rp "MC Server Password(if have)=" passwd
+    if [ -z "$host" ]; then
+        host="localhost"
+    fi
+    if [ -z "$port" ]; then
+        port="25575"
+    fi
+    if [ -z "$passwd" ]; then
+        passwd=""
+    fi
+    echo -e "host=$host\nport=$port\npasswd=$passwd" > server.mcrcon
+}
+
+connectToTheServer(){
+    if [ "$#" != "1" ]; then
+        mcrcon -H "$host" -P "$port" -p "$passwd" list >/dev/null 2>&1
+        return $?
+    fi
+    mcrcon -H "$host" -P "$port" -p "$passwd" "$1" >/dev/null 2>&1
+}
+
+backup(){
+    connectToTheServer "stop"
+}
+
+if [ -f server.mcrcon ]; then
+    while IFS='=' read -r key value; do
+        case "$key" in
+            "host")
+                host="$value";;
+            "port")
+                port="$value";;
+            "passwd")
+                passwd="$value";;
+            *)
+                echo "error key in server.mcrcon: $key";;
+        esac
+    done < server.mcrcon
+else
+    echo "No server.mcrcon found."
+    inputServerInfo
+fi
+
+if ! connectToTheServer; then
+    case "$?" in
+        "1")
+            echo "1"
+            inputServerInfo
+            echo "Run the sh again."
+            exit 1;;
+        "130")
+            echo "130";;
+        *)
+            echo "$?";;
+    esac
+fi
+
+
+
+exit 123
+echo "Now have connected to the Server(${host}:${port})"
+echo -en "commands:\n\tbackup"
+while read -r line; do
+    case "$line" in
+        "backup")
+            backup;;
+        *)
+            echo "Unknown command.";;
+    esac
+done
