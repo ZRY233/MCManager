@@ -29,8 +29,13 @@ inputServerInfo(){
 
 connectToTheServer(){
     if [ "$#" != "1" ]; then
-        mcrcon -H "$host" -P "$port" -p "$passwd" list >/dev/null 2>&1
-        return $?
+        local output="$(mcrcon -H "$host" -P "$port" -p "$passwd" list 2>&1)"
+        case "$output" in
+            *"Connection failed."*)
+                return 1;;
+            *"Authentication failed!"*)
+                return 2;;
+        esac
     fi
     mcrcon -H "$host" -P "$port" -p "$passwd" "$1" >/dev/null 2>&1
 }
@@ -57,23 +62,26 @@ else
     inputServerInfo
 fi
 
-if ! connectToTheServer; then
-    case "$?" in
+connectToTheServer
+backValue=$?
+
+if [ "$backValue" != 0 ]; then
+    case "$backValue" in
         "1")
-            echo "1"
-            inputServerInfo
-            echo "Run the sh again."
+            echo "Mabey the server is not running."
             exit 1;;
-        "130")
-            echo "130";;
+        "2")
+            echo "Mabey the configs is not correct."
+            inputServerInfo
+            echo "Run the MCManager.sh again."
+            exit 1;;
         *)
-            echo "$?";;
+            echo "backValue:$backValue";;
     esac
 fi
 
 
 
-exit 123
 echo "Now have connected to the Server(${host}:${port})"
 echo -en "commands:\n\tbackup"
 while read -r line; do
